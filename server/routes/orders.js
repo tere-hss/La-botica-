@@ -182,6 +182,34 @@ router.post('/:id/pay', (req, res) => {
   res.json({ ok: true, total, cambio, items });
 });
 
+// Ticket de un pedido (para imprimir / reimprimir)
+router.get('/:id/receipt', (req, res) => {
+  const order = db.prepare(`
+    SELECT o.*, t.label as table_label, e.name as employee_name
+    FROM orders o
+    LEFT JOIN tables t ON t.id = o.table_id
+    LEFT JOIN employees e ON e.id = o.employee_id
+    WHERE o.id = ?
+  `).get(req.params.id);
+  if (!order) return res.status(404).json({ error: 'Comanda no encontrada' });
+
+  order.items = db.prepare(`
+    SELECT oi.quantity, oi.price, oi.notes, p.name as product_name, p.emoji
+    FROM order_items oi JOIN products p ON p.id = oi.product_id
+    WHERE oi.order_id = ?
+    ORDER BY oi.id
+  `).all(req.params.id);
+
+  const subtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+  // IVA incluido (España hostelería 10%): desglose informativo
+  const base = subtotal / 1.10;
+  order.subtotal = subtotal;
+  order.iva_rate = 10;
+  order.iva = subtotal - base;
+  order.base = base;
+  res.json(order);
+});
+
 // Transfer order to another table
 router.post('/:id/transfer', (req, res) => {
   const { target_table_id } = req.body;

@@ -506,6 +506,55 @@ async function setKitchenStatus(itemId, status) {
   loadCocina();
 }
 
+/* ─────────────── TICKET / RECIBO ─────────────── */
+function renderTicket(data) {
+  // data: { table_label, employee_name, closed_at, id, items[], subtotal, base, iva, iva_rate, payment_method, amount_paid, cambio }
+  const when = data.closed_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const lines = data.items.map(i => `
+    <div class="t-line">
+      <span class="ti-q">${i.quantity}×</span>
+      <span class="ti-n">${i.product_name}</span>
+      <span class="ti-p">${fmt(i.price * i.quantity)}</span>
+    </div>
+    ${i.notes ? `<div class="t-note">${i.notes}</div>` : ''}`).join('');
+
+  const subtotal = data.subtotal ?? data.items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const base = data.base ?? subtotal / 1.10;
+  const iva = data.iva ?? (subtotal - base);
+
+  const payRow = data.payment_method
+    ? `<div class="t-pay"><span>${METHOD_LABEL[data.payment_method] || data.payment_method}</span><span>${fmt(subtotal)}</span></div>`
+    : '';
+  const cashRows = (data.payment_method === 'efectivo' && data.amount_paid)
+    ? `<div class="t-totrow"><span>Entregado</span><span>${fmt(data.amount_paid)}</span></div>
+       <div class="t-totrow"><span>Cambio</span><span>${fmt(data.cambio || 0)}</span></div>`
+    : '';
+
+  $('ticket-print').innerHTML = `
+    <div class="t-brand">La Bótica</div>
+    <div class="t-tag">Bar · Cervecería</div>
+    <div class="t-sep"></div>
+    <div class="t-meta"><span>Ticket #${data.id}</span><span>Mesa ${data.table_label ?? '—'}</span></div>
+    <div class="t-meta"><span>${when}</span><span>${data.employee_name || ''}</span></div>
+    <div class="t-sep"></div>
+    ${lines}
+    <div class="t-sep"></div>
+    <div class="t-totrow"><span>Base imponible</span><span>${fmt(base)}</span></div>
+    <div class="t-totrow"><span>IVA (${data.iva_rate || 10}%)</span><span>${fmt(iva)}</span></div>
+    <div class="t-total"><span>TOTAL</span><span>${fmt(subtotal)}</span></div>
+    ${payRow}
+    ${cashRows}
+    <div class="t-sep"></div>
+    <div class="t-foot">¡Gracias por su visita!<br>IVA incluido</div>`;
+
+  openModal('modal-ticket');
+}
+
+async function reimprimirTicket(orderId) {
+  const data = await apiFetch(`/orders/${orderId}/receipt`);
+  renderTicket(data);
+}
+
 /* ─────────────── CAJA ─────────────── */
 const METHOD_ICON = { efectivo: '💵', tarjeta: '💳', bizum: '📱', invitacion: '🎁' };
 const METHOD_LABEL = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum', invitacion: 'Invitación' };
@@ -553,7 +602,7 @@ async function loadCaja() {
     </div>`).join('');
 
   const ticketRows = s.tickets.map(t => `
-    <div class="ticket-row">
+    <div class="ticket-row" onclick="reimprimirTicket(${t.id})" title="Reimprimir ticket">
       <span class="tk-mesa">Mesa ${t.table_label ?? '—'}</span>
       <span class="tk-time">${(t.closed_at || '').slice(11, 16)}</span>
       <span class="tk-emp">${t.employee_name || '—'}</span>
@@ -669,12 +718,25 @@ async function confirmPago() {
   try {
     const total = state.currentOrder.items?.reduce((s, i) => s + i.price * i.quantity, 0) || 0;
     const amountPaid = state.payMethod === 'efectivo' ? parseFloat($('efectivo-input').value) || total : total;
-    await apiFetch(`/orders/${state.currentOrder.id}/pay`, {
+    const orderId = state.currentOrder.id;
+    const tableLabel = state.currentTableLabel;
+    const res = await apiFetch(`/orders/${orderId}/pay`, {
       method: 'POST',
       body: { method: state.payMethod, amount_paid: amountPaid },
     });
     closeModal('modal-pago');
     toast(`Cobro de ${fmt(total)} completado ✓`);
+    // Ticket para el cliente
+    renderTicket({
+      id: orderId,
+      table_label: tableLabel,
+      employee_name: state.employee?.name,
+      items: res.items,
+      subtotal: res.total,
+      payment_method: state.payMethod,
+      amount_paid: amountPaid,
+      cambio: res.cambio,
+    });
     state.currentOrder = null;
     await loadMapa();
     showView('mapa');
