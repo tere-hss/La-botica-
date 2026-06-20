@@ -30,8 +30,14 @@ function toast(msg, type = 'ok') {
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.textContent = msg;
+  t.style.cursor = 'pointer';
+  t.style.pointerEvents = 'auto';
+  t.onclick = () => t.remove();
   $('toast-wrap').appendChild(t);
-  setTimeout(() => t.remove(), 3000);
+  setTimeout(() => {
+    t.style.animation = 'toastOut .2s ease forwards';
+    setTimeout(() => t.remove(), 200);
+  }, 2800);
 }
 
 async function apiFetch(path, opts = {}) {
@@ -294,7 +300,10 @@ function renderProducts() {
 const searchInput = $('search-input');
 const suggestEl = $('search-suggest');
 
+let searchTimer;
 searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
   const q = searchInput.value.toLowerCase().trim();
   if (!q) { suggestEl.classList.add('hidden'); return; }
   const matches = state.products.filter(p => p.name.toLowerCase().includes(q)).slice(0, 8);
@@ -324,6 +333,7 @@ searchInput.addEventListener('input', () => {
     });
   }
   suggestEl.classList.remove('hidden');
+  }, 80);
 });
 
 document.addEventListener('click', e => {
@@ -403,17 +413,41 @@ function statusEmoji(s) {
 
 async function sendToKitchen() {
   if (!state.currentOrder) return;
-  await apiFetch(`/orders/${state.currentOrder.id}/send`, { method: 'POST' });
-  toast('Enviado a cocina ✓');
-  await refreshOrder();
+  const btn = $('send-btn');
+  btn.disabled = true;
+  btn.textContent = 'ENVIANDO...';
+  try {
+    await apiFetch(`/orders/${state.currentOrder.id}/send`, { method: 'POST' });
+    toast('Enviado a cocina ✓');
+    await refreshOrder();
+  } finally {
+    btn.textContent = 'ENVIAR A COCINA';
+  }
 }
 
-async function changeGuests() {
-  const n = prompt('Número de comensales:', state.currentOrder?.guests || 1);
-  if (!n || isNaN(n)) return;
-  // Update locally (no endpoint needed for this simple field)
-  state.currentOrder.guests = +n;
-  $('clientes-badge').textContent = `👥 ${+n}`;
+function changeGuests() {
+  const pop = $('guests-pop');
+  if (!pop.classList.contains('hidden')) { pop.classList.add('hidden'); return; }
+  $('guests-num').textContent = state.currentOrder?.guests || 1;
+  pop.classList.remove('hidden');
+  document.addEventListener('click', function handler(e) {
+    if (!e.target.closest('.guests-pop') && e.target !== $('clientes-badge')) {
+      pop.classList.add('hidden');
+      document.removeEventListener('click', handler);
+    }
+  });
+}
+
+function adjGuests(delta) {
+  const current = parseInt($('guests-num').textContent) || 1;
+  $('guests-num').textContent = Math.max(1, Math.min(20, current + delta));
+}
+
+function closeGuests() {
+  const n = parseInt($('guests-num').textContent) || 1;
+  if (state.currentOrder) state.currentOrder.guests = n;
+  $('clientes-badge').textContent = `👥 ${n}`;
+  $('guests-pop').classList.add('hidden');
 }
 
 /* ─────────────── COCINA ─────────────── */
@@ -428,6 +462,9 @@ async function loadCocina() {
     body.innerHTML = '<div class="cocina-empty"><span class="ic">✅</span><span>Todo listo — sin pedidos pendientes</span></div>';
     return;
   }
+
+  const STATUS_ORDER = { sent: 0, preparing: 1, ready: 2 };
+  orders.forEach(o => o.items.sort((a, b) => (STATUS_ORDER[a.status] ?? 3) - (STATUS_ORDER[b.status] ?? 3)));
 
   body.innerHTML = orders.map(order => `
     <div class="kcard">
@@ -502,18 +539,25 @@ function calcCambio() {
 
 async function confirmPago() {
   if (!state.currentOrder) return;
-  const total = state.currentOrder.items?.reduce((s, i) => s + i.price * i.quantity, 0) || 0;
-  const amountPaid = state.payMethod === 'efectivo' ? parseFloat($('efectivo-input').value) || total : total;
-
-  await apiFetch(`/orders/${state.currentOrder.id}/pay`, {
-    method: 'POST',
-    body: { method: state.payMethod, amount_paid: amountPaid },
-  });
-  closeModal('modal-pago');
-  toast(`Cobro de ${fmt(total)} completado ✓`);
-  state.currentOrder = null;
-  await loadMapa();
-  showView('mapa');
+  const btn = document.querySelector('#modal-pago .pay-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+  try {
+    const total = state.currentOrder.items?.reduce((s, i) => s + i.price * i.quantity, 0) || 0;
+    const amountPaid = state.payMethod === 'efectivo' ? parseFloat($('efectivo-input').value) || total : total;
+    await apiFetch(`/orders/${state.currentOrder.id}/pay`, {
+      method: 'POST',
+      body: { method: state.payMethod, amount_paid: amountPaid },
+    });
+    closeModal('modal-pago');
+    toast(`Cobro de ${fmt(total)} completado ✓`);
+    state.currentOrder = null;
+    await loadMapa();
+    showView('mapa');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'CONFIRMAR PAGO';
+  }
 }
 
 /* ─────────────── DIVIDIR ─────────────── */
@@ -555,13 +599,21 @@ function renderDivide() {
 
 async function cobrarDivide() {
   if (state.divideSelected.length === 0) { toast('Selecciona artículos a cobrar', 'err'); return; }
-  // Mark selected items as delivered, then show payment for the subtotal
-  for (const itemId of state.divideSelected) {
-    await apiFetch(`/orders/items/${itemId}/status`, { method: 'PATCH', body: { status: 'delivered' } });
+  const btn = document.querySelector('#modal-dividir .pay-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Procesando...';
+  try {
+    for (const itemId of state.divideSelected) {
+      await apiFetch(`/orders/items/${itemId}/status`, { method: 'PATCH', body: { status: 'delivered' } });
+    }
+    state.divideSelected = [];
+    closeModal('modal-dividir');
+    await refreshOrder();
+    toast('Parcial cobrado ✓');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Cobrar selección';
   }
-  closeModal('modal-dividir');
-  await refreshOrder();
-  toast('Parcial cobrado ✓');
 }
 
 /* ─────────────── TRASLADO ─────────────── */
@@ -586,17 +638,22 @@ function openTraslado() {
 }
 
 async function doTraslado(targetId, targetLabel) {
-  await apiFetch(`/orders/${state.currentOrder.id}/transfer`, {
-    method: 'POST',
-    body: { target_table_id: targetId },
-  });
-  closeModal('modal-traslado');
-  toast(`Comanda trasladada a Mesa ${targetLabel}`);
-  state.currentTableId = targetId;
-  const order = await apiFetch(`/orders/table/${targetId}`);
-  state.currentOrder = order;
-  renderComanda();
-  await loadMapa();
+  document.querySelectorAll('.mesa-pick-btn').forEach(b => b.disabled = true);
+  try {
+    await apiFetch(`/orders/${state.currentOrder.id}/transfer`, {
+      method: 'POST',
+      body: { target_table_id: targetId },
+    });
+    closeModal('modal-traslado');
+    toast(`Comanda trasladada a Mesa ${targetLabel}`);
+    state.currentTableId = targetId;
+    const order = await apiFetch(`/orders/table/${targetId}`);
+    state.currentOrder = order;
+    renderComanda();
+    await loadMapa();
+  } finally {
+    document.querySelectorAll('.mesa-pick-btn').forEach(b => b.disabled = false);
+  }
 }
 
 /* ─────────────── MODAL HELPERS ─────────────── */
@@ -604,6 +661,12 @@ function openModal(id) { $(id).classList.add('on'); }
 function closeModal(id) { $(id).classList.remove('on'); }
 document.querySelectorAll('.overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) o.classList.remove('on'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.overlay.on').forEach(o => o.classList.remove('on'));
+    $('guests-pop')?.classList.add('hidden');
+  }
 });
 
 /* ─────────────── SOCKET.IO ─────────────── */
@@ -619,8 +682,11 @@ socket.on('order:updated', ({ order_id }) => {
 
 /* ─────────────── AUTO-REFRESH COCINA ─────────────── */
 setInterval(() => {
-  if ($('view-cocina').classList.contains('on')) loadCocina();
+  if (!document.hidden && $('view-cocina').classList.contains('on')) loadCocina();
 }, 15000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && $('view-cocina').classList.contains('on')) loadCocina();
+});
 
 /* ─────────────── BOOT ─────────────── */
 initLogin();
