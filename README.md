@@ -26,18 +26,28 @@ Sistema de comandas y punto de venta para bar/restaurante.
 
 ## Arrancar
 
+Una sola orden — el servidor sirve también el cliente:
+
 ```bash
-# Terminal 1 — Backend
 cd server
 npm install
 npm start
-
-# Terminal 2 — Frontend
-cd client
-npx serve .
 ```
 
-El backend corre en `http://localhost:3001` y crea la base de datos SQLite automáticamente.
+Abre **http://localhost:3001** en el navegador. La base de datos SQLite se crea y rellena con datos de ejemplo automáticamente.
+
+## Estados de mesa (automáticos)
+
+| Estado | Color | Significado |
+|--------|-------|-------------|
+| Libre | gris | Sin comanda abierta |
+| Ocupada | dorado | Comanda en curso |
+| Alerta | naranja | Cocina tiene comida lista por servir |
+| Cobrar | verde | Todo servido, pendiente de cobro |
+
+## Tarifa noche
+
+De **21:00 a 06:00** las bebidas alcohólicas aplican un recargo automático (precio noche). El TPV muestra la tarifa activa y marca con 🌙 los productos con precio nocturno.
 
 ## Empleados demo
 

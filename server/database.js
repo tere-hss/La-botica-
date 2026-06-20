@@ -179,4 +179,16 @@ if (empCount.c === 0) {
   ip.run(catPost, 'Helado',           3.00, '🍨', 0.4);
 }
 
+// ── Backfill tarifa noche (idempotente): recargo de noche en bebidas alcohólicas ──
+// Café, refrescos, tapas, bocadillos y postres mantienen precio. Se aplica solo donde aún es NULL.
+db.prepare(`
+  UPDATE products
+  SET price_night = ROUND(price * 1.15 * 2) / 2.0
+  WHERE price_night IS NULL
+    AND category_id IN (
+      SELECT id FROM categories
+      WHERE name IN ('Cañas y cervezas','Vinos y copas','Destilados')
+    )
+`).run();
+
 module.exports = db;

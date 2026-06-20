@@ -2,6 +2,41 @@ const express = require('express');
 const db = require('../database');
 const router = express.Router();
 
+// ── Tarifa día/noche: noche = 21:00–06:00 ──
+function isNightTariff() {
+  const h = new Date().getHours();
+  return h >= 21 || h < 6;
+}
+function priceFor(product) {
+  return (isNightTariff() && product.price_night != null) ? product.price_night : product.price;
+}
+
+// ── Estado automático de la mesa según sus items ──
+// libre → sin comanda | ocupada → en curso | naranja → comida lista por servir | cobrar → todo servido
+function recomputeTableStatus(tableId, io) {
+  const order = db.prepare("SELECT * FROM orders WHERE table_id=? AND status='open'").get(tableId);
+  if (!order) {
+    db.prepare("UPDATE tables SET status='libre' WHERE id=?").run(tableId);
+    if (io) io.emit('tables:refresh');
+    return;
+  }
+  const items = db.prepare('SELECT status FROM order_items WHERE order_id=?').all(order.id);
+  let status = 'ocupada';
+  if (items.length > 0) {
+    const hasReady = items.some(i => i.status === 'ready');
+    const allDelivered = items.every(i => i.status === 'delivered');
+    if (hasReady) status = 'naranja';          // cocina lista, falta servir
+    else if (allDelivered) status = 'cobrar';  // todo servido, pendiente de cobro
+  }
+  db.prepare('UPDATE tables SET status=? WHERE id=?').run(status, tableId);
+  if (io) io.emit('tables:refresh');
+}
+
+function tableIdForOrder(orderId) {
+  const o = db.prepare('SELECT table_id FROM orders WHERE id=?').get(orderId);
+  return o ? o.table_id : null;
+}
+
 function getOrderWithItems(orderId) {
   const order = db.prepare('SELECT * FROM orders WHERE id=?').get(orderId);
   if (!order) return null;
@@ -68,7 +103,7 @@ router.post('/:id/items', (req, res) => {
 
   const r = db.prepare(
     "INSERT INTO order_items (order_id,product_id,quantity,price,notes) VALUES (?,?,?,?,?)"
-  ).run(req.params.id, product_id, quantity || 1, product.price, notes || '');
+  ).run(req.params.id, product_id, quantity || 1, priceFor(product), notes || '');
 
   const item = db.prepare(`
     SELECT oi.*, p.name as product_name, p.emoji
@@ -86,8 +121,16 @@ router.delete('/items/:itemId', (req, res) => {
   if (!item) return res.status(404).json({ error: 'No encontrado' });
   if (item.status !== 'pending') return res.status(400).json({ error: 'Item ya enviado a cocina' });
   db.prepare('DELETE FROM order_items WHERE id=?').run(req.params.itemId);
+  recomputeTableStatus(tableIdForOrder(item.order_id), req.app.get('io'));
   req.app.get('io').emit('order:updated', { order_id: item.order_id });
   res.json({ ok: true });
+});
+
+// Update guest count
+router.patch('/:id/guests', (req, res) => {
+  const guests = Math.max(1, parseInt(req.body.guests) || 1);
+  db.prepare('UPDATE orders SET guests=? WHERE id=?').run(guests, req.params.id);
+  res.json({ ok: true, guests });
 });
 
 // Send pending items to kitchen
@@ -96,6 +139,7 @@ router.post('/:id/send', (req, res) => {
     UPDATE order_items SET status='sent', sent_at=datetime('now','localtime')
     WHERE order_id=? AND status='pending'
   `).run(req.params.id);
+  recomputeTableStatus(tableIdForOrder(req.params.id), req.app.get('io'));
   req.app.get('io').emit('kitchen:refresh');
   req.app.get('io').emit('order:updated', { order_id: req.params.id });
   res.json({ ok: true });
@@ -106,6 +150,7 @@ router.patch('/items/:itemId/status', (req, res) => {
   const { status } = req.body;
   db.prepare('UPDATE order_items SET status=? WHERE id=?').run(status, req.params.itemId);
   const item = db.prepare('SELECT * FROM order_items WHERE id=?').get(req.params.itemId);
+  recomputeTableStatus(tableIdForOrder(item.order_id), req.app.get('io'));
   req.app.get('io').emit('kitchen:refresh');
   req.app.get('io').emit('order:updated', { order_id: item.order_id });
   res.json({ ok: true });

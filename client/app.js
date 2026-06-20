@@ -1,6 +1,8 @@
 /* ─────────────── CONFIG ─────────────── */
-const API = 'http://localhost:3001/api';
-const socket = io('http://localhost:3001');
+// Mismo origen cuando se sirve desde Express; fallback a :3001 si se abre el HTML directo (file://)
+const SAME_ORIGIN = location.protocol.startsWith('http');
+const API = SAME_ORIGIN ? '/api' : 'http://localhost:3001/api';
+const socket = io(SAME_ORIGIN ? undefined : 'http://localhost:3001');
 
 /* ─────────────── STATE ─────────────── */
 let state = {
@@ -20,6 +22,8 @@ let state = {
 /* ─────────────── HELPERS ─────────────── */
 const $ = id => document.getElementById(id);
 const fmt = n => (n ?? 0).toFixed(2).replace('.', ',') + ' €';
+// Precio según tarifa activa (noche usa price_night si existe)
+const priceOf = p => (state.isNight && p.price_night != null) ? p.price_night : p.price;
 const elapsed = (created_at) => {
   if (!created_at) return '';
   const diff = Math.floor((Date.now() - new Date(created_at).getTime()) / 60000);
@@ -225,6 +229,7 @@ function renderZone(zone) {
 
 async function openTable(table) {
   state.currentTableId = table.id;
+  state.currentTableLabel = table.label;
   const zoneLabel = state.zones.find(z => z.id === table.zone_id)?.name || '';
   $('cmd-zona-label').textContent = zoneLabel;
   $('cmd-mesa-label').innerHTML = `<small>${zoneLabel}</small>Mesa ${table.label}`;
@@ -286,11 +291,12 @@ function renderProducts() {
   filtered.forEach(p => {
     const card = document.createElement('button');
     card.className = 'pcard';
+    const night = state.isNight && p.price_night != null;
     card.innerHTML = `
       <div class="demand" style="width:${(p.demand || 0) * 100}%"></div>
       <div class="pe">${p.emoji}</div>
       <div class="pn">${p.name}</div>
-      <div class="pp">${fmt(p.price)}</div>`;
+      <div class="pp">${fmt(priceOf(p))}${night ? ' 🌙' : ''}</div>`;
     card.onclick = () => addItem(p);
     grid.appendChild(card);
   });
@@ -320,7 +326,7 @@ searchInput.addEventListener('input', () => {
       prods.map(p => `
         <div class="ss-item" data-id="${p.id}">
           <span>${p.emoji} ${p.name}</span>
-          <span class="ss-price">${fmt(p.price)}</span>
+          <span class="ss-price">${fmt(priceOf(p))}</span>
         </div>`).join('')
     ).join('');
     suggestEl.querySelectorAll('.ss-item').forEach(item => {
@@ -443,11 +449,14 @@ function adjGuests(delta) {
   $('guests-num').textContent = Math.max(1, Math.min(20, current + delta));
 }
 
-function closeGuests() {
+async function closeGuests() {
   const n = parseInt($('guests-num').textContent) || 1;
-  if (state.currentOrder) state.currentOrder.guests = n;
-  $('clientes-badge').textContent = `👥 ${n}`;
   $('guests-pop').classList.add('hidden');
+  if (state.currentOrder) {
+    state.currentOrder.guests = n;
+    $('clientes-badge').textContent = `👥 ${n}`;
+    await apiFetch(`/orders/${state.currentOrder.id}/guests`, { method: 'PATCH', body: { guests: n } });
+  }
 }
 
 /* ─────────────── COCINA ─────────────── */
@@ -500,7 +509,7 @@ async function setKitchenStatus(itemId, status) {
 function openPago() {
   if (!state.currentOrder) return;
   const total = state.currentOrder.items?.reduce((s, i) => s + i.price * i.quantity, 0) || 0;
-  $('pago-sub').textContent = `Mesa ${state.currentOrder.table_id} · Comanda #${state.currentOrder.id}`;
+  $('pago-sub').textContent = `Mesa ${state.currentTableLabel || ''} · Comanda #${state.currentOrder.id}`;
   $('pay-total-val').textContent = fmt(total);
   selectMethod('efectivo');
   buildQuickCash(total);
@@ -647,6 +656,7 @@ async function doTraslado(targetId, targetLabel) {
     closeModal('modal-traslado');
     toast(`Comanda trasladada a Mesa ${targetLabel}`);
     state.currentTableId = targetId;
+    state.currentTableLabel = targetLabel;
     const order = await apiFetch(`/orders/table/${targetId}`);
     state.currentOrder = order;
     renderComanda();
