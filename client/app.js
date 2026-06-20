@@ -178,6 +178,7 @@ function showView(name) {
   document.querySelector(`.nav-tab[data-view="${name}"]`)?.classList.add('on');
   if (name === 'cocina') loadCocina();
   if (name === 'mapa') loadMapa();
+  if (name === 'caja') loadCaja();
 }
 
 document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -505,6 +506,120 @@ async function setKitchenStatus(itemId, status) {
   loadCocina();
 }
 
+/* ─────────────── CAJA ─────────────── */
+const METHOD_ICON = { efectivo: '💵', tarjeta: '💳', bizum: '📱', invitacion: '🎁' };
+const METHOD_LABEL = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum', invitacion: 'Invitación' };
+
+async function loadCaja() {
+  const [s, closures] = await Promise.all([
+    apiFetch('/reports/summary'),
+    apiFetch('/reports/closures'),
+  ]);
+
+  $('caja-since').textContent = s.order_count > 0
+    ? `Desde ${s.from} · ${s.order_count} tickets`
+    : 'Sin ventas en el turno actual';
+  $('caja-close-btn').disabled = s.order_count === 0;
+
+  const body = $('caja-body');
+
+  if (s.order_count === 0) {
+    body.innerHTML = `
+      <div class="caja-hero">
+        <div><div class="l">Total del turno</div><div class="v">0,00 €</div></div>
+        <div class="cnt">0 tickets</div>
+      </div>
+      <div class="caja-empty"><span class="ic">🧾</span><span>Aún no hay ventas en este turno</span></div>
+      ${renderClosures(closures)}`;
+    return;
+  }
+
+  const methodRows = Object.keys(METHOD_LABEL).map(m => `
+    <div class="cm-row">
+      <span class="nm">${METHOD_ICON[m]} ${METHOD_LABEL[m]}</span>
+      <span class="am">${fmt(s.by_method[m])}</span>
+    </div>`).join('');
+
+  const empRows = s.by_employee.map(e => `
+    <div class="cm-row">
+      <span class="nm">👤 ${e.name}</span>
+      <span class="am">${fmt(e.amount)}</span>
+    </div>`).join('');
+
+  const topRows = s.top_products.map(p => `
+    <div class="cm-row">
+      <span class="nm">${p.emoji || '🍽️'} ${p.name}</span>
+      <span class="qty">${p.qty} uds</span>
+    </div>`).join('');
+
+  const ticketRows = s.tickets.map(t => `
+    <div class="ticket-row">
+      <span class="tk-mesa">Mesa ${t.table_label ?? '—'}</span>
+      <span class="tk-time">${(t.closed_at || '').slice(11, 16)}</span>
+      <span class="tk-emp">${t.employee_name || '—'}</span>
+      <span class="tk-method">${METHOD_ICON[t.payment_method] || ''} ${t.payment_method || ''}</span>
+      <span class="tk-total">${fmt(t.total_paid)}</span>
+    </div>`).join('');
+
+  body.innerHTML = `
+    <div class="caja-hero">
+      <div><div class="l">Total del turno</div><div class="v">${fmt(s.total)}</div></div>
+      <div class="cnt">${s.order_count} tickets<br>${s.tickets.reduce((a,t)=>a+1,0)} cobros</div>
+    </div>
+    <div class="caja-card">
+      <div class="caja-card-h">Por método de pago</div>
+      <div class="caja-card-b">${methodRows}</div>
+    </div>
+    <div class="caja-card">
+      <div class="caja-card-h">Por empleado</div>
+      <div class="caja-card-b">${empRows}</div>
+    </div>
+    <div class="caja-card">
+      <div class="caja-card-h">Top productos</div>
+      <div class="caja-card-b">${topRows}</div>
+    </div>
+    <div class="caja-card caja-tickets">
+      <div class="caja-card-h">Tickets del turno (${s.order_count})</div>
+      <div>${ticketRows}</div>
+    </div>
+    ${renderClosures(closures)}`;
+}
+
+function renderClosures(closures) {
+  if (!closures || closures.length === 0) return '';
+  const rows = closures.map(c => `
+    <div class="closure-row">
+      <span class="cz">Z#${c.id}</span>
+      <span>${c.closed_at}</span>
+      <span>· ${c.employee_name} · ${c.order_count} tickets</span>
+      <span class="ctot">${fmt(c.total)}</span>
+    </div>`).join('');
+  return `
+    <div class="caja-card caja-closures">
+      <div class="caja-card-h">Historial de cierres</div>
+      <div>${rows}</div>
+    </div>`;
+}
+
+async function cerrarCaja() {
+  if (!confirm('¿Cerrar la caja del turno? Se hará el cierre Z y el acumulado volverá a cero.')) return;
+  const btn = $('caja-close-btn');
+  btn.disabled = true;
+  btn.textContent = 'Cerrando...';
+  try {
+    const { closure } = await apiFetch('/reports/close', {
+      method: 'POST',
+      body: { employee_id: state.employee?.id, employee_name: state.employee?.name },
+    });
+    toast(`Cierre Z#${closure.id} · ${fmt(closure.total)} en ${closure.order_count} tickets ✓`);
+    await loadCaja();
+  } catch {
+    // error ya notificado por apiFetch
+  } finally {
+    btn.textContent = 'Cerrar caja (Z)';
+  }
+}
+
 /* ─────────────── PAGO ─────────────── */
 function openPago() {
   if (!state.currentOrder) return;
@@ -682,6 +797,7 @@ document.addEventListener('keydown', e => {
 /* ─────────────── SOCKET.IO ─────────────── */
 socket.on('tables:refresh', () => {
   if ($('view-mapa').classList.contains('on')) loadMapa();
+  if ($('view-caja').classList.contains('on')) loadCaja();
 });
 socket.on('kitchen:refresh', () => {
   if ($('view-cocina').classList.contains('on')) loadCocina();

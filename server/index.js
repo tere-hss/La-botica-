@@ -17,6 +17,7 @@ app.use('/api/tables', require('./routes/tables'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Serve the client as static files → one app, one URL
 app.use(express.static(path.join(__dirname, '..', 'client')));

@@ -66,6 +66,19 @@ db.exec(`
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending','sent','preparing','ready','delivered')),
     sent_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS cash_closures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    closed_at TEXT DEFAULT (datetime('now','localtime')),
+    closed_by INTEGER REFERENCES employees(id),
+    employee_name TEXT,
+    from_at TEXT,
+    order_count INTEGER DEFAULT 0,
+    total REAL DEFAULT 0,
+    total_efectivo REAL DEFAULT 0,
+    total_tarjeta REAL DEFAULT 0,
+    total_bizum REAL DEFAULT 0,
+    total_invitacion REAL DEFAULT 0
+  );
 `);
 
 // Seed only if empty
