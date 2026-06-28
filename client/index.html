@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TPV · La Bótica</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f0e0c;--surface:#1a1915;--surface2:#15140f;--border:#2e2c27;--accent:#d4a843;--accent2:#e8c47a;--danger:#c0392b;--success:#27ae60;--warn:#e67e22;--text:#e8e4db;--muted:#7a7568;--card:#1e1d19}
+body{height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── LOGIN ── */
+#screen-login{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#1a1814,#0f0e0c 70%);gap:30px}
+.login-brand{text-align:center}
+.login-brand .b1{font-family:'Bebas Neue',sans-serif;font-size:64px;letter-spacing:4px;color:var(--accent);line-height:.9}
+.login-brand .b2{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:6px;color:var(--muted);text-transform:uppercase;margin-top:6px}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.login-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;text-align:center;margin-bottom:16px}
+.emp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.emp-btn{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 10px;color:var(--text);text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:6px}
+.emp-btn:hover{border-color:var(--accent)}
+.emp-btn.sel{border-color:var(--accent);background:#252318}
+.emp-avatar{width:42px;height:42px;border-radius:50%;color:#000;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:22px}
+.emp-name{font-size:13px;font-weight:700}
+.emp-role{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)}
+.pin-display{display:flex;justify-content:center;gap:10px;margin-bottom:14px;height:18px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border)}
+.pin-dot.on{background:var(--accent);border-color:var(--accent)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pin-key{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--text);transition:all .1s}
+.pin-key:hover{border-color:var(--accent);color:var(--accent)}
+.pin-key:active{background:var(--accent);color:#000}
+.pin-key.fn{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1px}
+.login-hint{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-align:center;margin-top:14px}
+.login-err{font-family:'DM Mono',monospace;font-size:10px;color:var(--danger);text-align:center;margin-top:6px;min-height:16px}
+
+/* ── APP SHELL ── */
+#app{height:100vh;display:none;flex-direction:column}
+#app.on{display:flex}
+.topnav{display:flex;align-items:center;gap:14px;padding:9px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.topnav .logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent)}
+.nav-btns{display:flex;gap:4px}
+.nav-tab{background:none;border:1px solid transparent;border-radius:7px;padding:7px 14px;color:var(--muted);font-size:12px;font-weight:500;transition:all .15s}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.on{background:var(--card);border-color:var(--border);color:var(--accent)}
+.topnav .spacer{flex:1}
+.clock{font-family:'DM Mono',monospace;font-size:13px}
+.shift-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:var(--card);padding:5px 10px;border-radius:6px;border:1px solid var(--border)}
+.emp-chip{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 4px;cursor:pointer}
+.emp-chip .av{width:26px;height:26px;border-radius:50%;color:#000;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px}
+.emp-chip .nm{font-size:12px;font-weight:700}
+.price-flag{font-family:'DM Mono',monospace;font-size:9px;padding:4px 8px;border-radius:6px;border:1px solid}
+.price-flag.day{color:var(--accent);border-color:var(--accent)}
+.price-flag.night{color:var(--accent2);border-color:var(--accent2);background:#251f10}
+
+/* ── VIEWS ── */
+.view{flex:1;overflow:hidden;display:none}
+.view.on{display:flex}
+
+/* ── MAPA ── */
+#view-mapa{flex-direction:column;background:var(--surface2)}
+.zone-tabs{display:flex;gap:6px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto}
+.zone-tab{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 18px;color:var(--text);font-weight:700;font-size:13px;white-space:nowrap;transition:all .15s}
+.zone-tab:hover{border-color:var(--accent)}
+.zone-tab.on{background:var(--accent);color:#000;border-color:var(--accent)}
+.zone-stage{flex:1;overflow:auto;padding:24px;position:relative}
+.zone-canvas{position:relative;min-height:380px;min-width:800px}
+.zone-feature{position:absolute;border:1px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;pointer-events:none;background:rgba(255,255,255,.015)}
+.mesa{position:absolute;width:78px;height:78px;border-radius:14px;border:2px solid var(--border);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:border-color .15s,background .15s;user-select:none;cursor:pointer}
+.mesa:hover{border-color:var(--accent)}
+.mesa.ocupada{border-color:var(--accent);background:#241f12}
+.mesa.naranja{border-color:var(--warn);background:#2a1c0e;animation:pulseWarn 1.6s infinite}
+.mesa.cobrar{border-color:var(--success);background:#13251a}
+.mesa.move-src{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(232,196,122,.3)}
+.mesa.move-target{border-style:dashed;border-color:var(--accent2)}
+@keyframes pulseWarn{0%,100%{box-shadow:0 0 0 0 rgba(230,126,34,.4)}50%{box-shadow:0 0 0 6px rgba(230,126,34,0)}}
+.mesa .m-num{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:.8;color:var(--text)}
+.mesa.ocupada .m-num,.mesa.cobrar .m-num{color:var(--accent)}
+.mesa .m-info{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted)}
+.mesa .m-total{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:var(--accent2)}
+.mesa .m-alert{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--warn);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center}
+.mesa .m-time{position:absolute;bottom:-8px;font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);background:var(--surface2);padding:0 4px;border-radius:3px}
+.mapa-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.tool-btn{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 14px;color:var(--text);font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;transition:all .15s}
+.tool-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tool-btn.active{background:var(--accent2);color:#000;border-color:var(--accent2)}
+.mapa-legend{display:flex;gap:14px;margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.lg{display:flex;align-items:center;gap:5px}
+.lg .dot{width:10px;height:10px;border-radius:3px;border:1px solid}
+.lg .dot.libre{border-color:var(--border)}
+.lg .dot.ocu{border-color:var(--accent);background:#241f12}
+.lg .dot.nar{border-color:var(--warn);background:#2a1c0e}
+.lg .dot.cob{border-color:var(--success);background:#13251a}
+
+/* ── COMANDA ── */
+#view-comanda{flex-direction:column;background:var(--surface2)}
+.cmd-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.cmd-back{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 14px;color:var(--text);font-size:12px}
+.cmd-back:hover{border-color:var(--accent)}
+.cmd-mesa{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;color:var(--accent)}
+.cmd-mesa small{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;display:block;line-height:1}
+.cmd-search{flex:1;position:relative;max-width:420px}
+.cmd-search input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px 9px 34px;border-radius:7px;outline:none}
+.cmd-search input:focus{border-color:var(--accent)}
+.cmd-search .ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px}
+.search-suggest{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;z-index:30;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.search-suggest .ss-cat{font-family:'DM Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:2px;padding:8px 12px 2px;text-transform:uppercase}
+.search-suggest .ss-item{padding:9px 12px;font-size:13px;display:flex;justify-content:space-between;border-top:1px solid var(--border);cursor:pointer}
+.search-suggest .ss-item:hover{background:var(--card)}
+.search-suggest .ss-price{font-family:'DM Mono',monospace;color:var(--accent);font-size:12px}
+.search-suggest .ss-none{padding:12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:center}
+.cmd-warn-btn{background:var(--card);border:1px solid var(--warn);color:var(--warn);border-radius:7px;padding:8px 12px;font-size:11px;font-family:'DM Mono',monospace}
+.cmd-warn-btn:hover{background:var(--warn);color:#fff}
+.cmd-body{flex:1;display:grid;grid-template-columns:150px 1fr 340px;overflow:hidden}
+.cmd-cats{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:8px}
+.cmd-cat{width:100%;background:none;border:1px solid transparent;border-radius:7px;padding:11px 12px;color:var(--text);text-align:left;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;margin-bottom:3px;transition:all .12s}
+.cmd-cat:hover{background:var(--card)}
+.cmd-cat.on{background:var(--accent);color:#000;font-weight:700}
+.cmd-cat .ce{font-size:15px}
+.cmd-cat .cc{margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;opacity:.5}
+.cmd-grid-wrap{overflow-y:auto;padding:14px}
+.cmd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:9px;align-content:start}
+.pcard{position:relative;border:1px solid var(--border);border-radius:10px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;background:var(--card);transition:transform .12s,border-color .15s;user-select:none;overflow:hidden;cursor:pointer}
+.pcard:hover{transform:translateY(-2px);border-color:var(--accent)}
+.pcard .pe{font-size:24px}
+.pcard .pn{font-size:11px;font-weight:700;line-height:1.15}
+.pcard .pp{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)}
+.pcard .demand{position:absolute;top:0;left:0;width:100%;height:3px;background:linear-gradient(90deg,var(--accent),transparent)}
+.pcard .pcard-empty{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:40px;border:none;background:none}
+.cmd-panel{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.cmd-panel-head{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cmd-panel-head .t{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px}
+.cmd-panel-head .clientes{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer}
+.cmd-list{flex:1;overflow-y:auto;padding:8px 12px}
+.cmd-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;gap:8px;text-align:center}
+.cmd-empty .i{font-size:30px;opacity:.4}
+.cmd-line{display:flex;align-items:center;gap:7px;padding:7px 4px;border-bottom:1px solid var(--border);animation:slideIn .15s}
+@keyframes slideIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+.cmd-line.nuevo{background:rgba(212,168,67,.06)}
+.cmd-line.sent{opacity:.6}
+.cmd-line .q{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);min-width:22px;text-align:right}
+.cmd-line .n{flex:1;font-size:12px;line-height:1.25}
+.cmd-line .n .tag{font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);background:var(--card);padding:1px 4px;border-radius:3px;margin-left:4px;vertical-align:middle}
+.cmd-line .pr{font-family:'DM Mono',monospace;font-size:12px}
+.cmd-line .x{background:none;border:none;color:var(--muted);font-size:13px;padding:0 2px}
+.cmd-line .x:hover{color:var(--danger)}
+.cmd-foot{border-top:1px solid var(--border);padding:12px 14px}
+.cmd-status{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between}
+.cmd-status .sent{color:var(--success)}
+.cmd-status .pend{color:var(--accent2)}
+.cmd-total{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.cmd-total .tl{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+.cmd-total .ta{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--accent)}
+.send-btn{width:100%;background:var(--accent);color:#000;border:none;border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;transition:all .15s}
+.send-btn:hover{background:var(--accent2)}
+.send-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+.cmd-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.act-btn{border:1px solid var(--border);background:var(--card);border-radius:7px;padding:10px 4px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text);transition:all .15s}
+.act-btn:hover{border-color:var(--accent);color:var(--accent)}
+.act-btn.cobrar{background:var(--success);color:#fff;border-color:var(--success);font-weight:700}
+.act-btn.cobrar:hover{background:#2ecc71}
+
+/* ── COCINA ── */
+#view-cocina{flex-direction:column;overflow:hidden}
+.cocina-head{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.cocina-head h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent)}
+.cocina-tick{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.cocina-body{flex:1;overflow-y:auto;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-content:start}
+.cocina-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:var(--muted);gap:10px}
+.cocina-empty .ic{font-size:40px;opacity:.3}
+.kcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.kcard-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.kcard-mesa{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent)}
+.kcard-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.kcard-items{padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.kitem{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;border-left:3px solid var(--border);background:var(--bg)}
+.kitem.sent{border-left-color:var(--accent2)}
+.kitem.preparing{border-left-color:var(--warn);background:#1a140a}
+.kitem.ready{border-left-color:var(--success);background:#0d1f14}
+.kitem .ke{font-size:16px}
+.kitem .kq{font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);min-width:24px}
+.kitem .kn{flex:1;font-size:13px;font-weight:600}
+.kitem .knt{font-size:10px;color:var(--muted);font-style:italic}
+.kitem-btns{display:flex;gap:4px;margin-left:auto}
+.kbtn{border:1px solid var(--border);background:var(--card);border-radius:5px;padding:5px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text);transition:all .12s}
+.kbtn:hover{border-color:var(--accent);color:var(--accent)}
+.kbtn.preparar{border-color:var(--warn);color:var(--warn)}
+.kbtn.preparar:hover{background:var(--warn);color:#fff}
+.kbtn.listo{border-color:var(--success);color:var(--success)}
+.kbtn.listo:hover{background:var(--success);color:#fff}
+
+/* ── CAJA ── */
+#view-caja{flex-direction:column;overflow:hidden;background:var(--surface2)}
+.caja-head{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.caja-head h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent)}
+.caja-since{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.caja-close-btn{margin-left:auto;background:var(--danger);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:1px;text-transform:uppercase;transition:all .15s}
+.caja-close-btn:hover{background:#e74c3c}
+.caja-close-btn:active{transform:scale(.97)}
+.caja-close-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+.caja-body{flex:1;overflow-y:auto;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start;max-width:1100px;margin:0 auto;width:100%}
+.caja-hero{grid-column:1/-1;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between}
+.caja-hero .l{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted)}
+.caja-hero .v{font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--accent);line-height:1}
+.caja-hero .cnt{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-align:right}
+.caja-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.caja-card-h{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--border)}
+.caja-card-b{padding:10px 16px}
+.cm-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.cm-row:last-child{border-bottom:none}
+.cm-row .nm{font-size:13px;display:flex;align-items:center;gap:8px}
+.cm-row .am{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent)}
+.cm-row .qty{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:var(--card);padding:2px 7px;border-radius:5px}
+.caja-tickets{grid-column:1/-1}
+.ticket-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px}
+.ticket-row:last-child{border-bottom:none}
+.ticket-row .tk-mesa{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--accent);min-width:70px}
+.ticket-row .tk-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.ticket-row .tk-emp{color:var(--muted);font-size:11px}
+.ticket-row .tk-method{font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:3px 8px;border-radius:5px;border:1px solid var(--border);color:var(--text)}
+.ticket-row .tk-total{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);margin-left:auto;font-weight:500}
+.caja-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:240px;color:var(--muted);gap:10px}
+.caja-empty .ic{font-size:40px;opacity:.3}
+.caja-closures{grid-column:1/-1}
+.closure-row{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.closure-row:last-child{border-bottom:none}
+.closure-row .cz{color:var(--accent2);min-width:42px}
+.closure-row .ctot{margin-left:auto;color:var(--text);font-size:13px}
+@media(max-width:900px){.caja-body{grid-template-columns:1fr}.caja-hero{flex-direction:column;align-items:flex-start;gap:8px}}
+.ticket-row{cursor:pointer}
+.ticket-row:hover{background:var(--card)}
+
+/* ── TICKET / RECIBO ── */
+.ticket-shell{display:flex;flex-direction:column;align-items:center;gap:14px;animation:pop .18s cubic-bezier(.34,1.56,.64,1)}
+.ticket{background:#fff;color:#111;width:300px;max-height:80vh;overflow-y:auto;padding:22px 20px;font-family:'DM Mono',monospace;font-size:12px;line-height:1.5;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.ticket .t-brand{text-align:center;font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:3px;color:#111}
+.ticket .t-tag{text-align:center;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:10px}
+.ticket .t-sep{border-top:1px dashed #999;margin:8px 0}
+.ticket .t-meta{display:flex;justify-content:space-between;font-size:11px;color:#444}
+.ticket .t-line{display:flex;justify-content:space-between;gap:6px}
+.ticket .t-line .ti-q{min-width:24px}
+.ticket .t-line .ti-n{flex:1}
+.ticket .t-line .ti-p{text-align:right;white-space:nowrap}
+.ticket .t-note{font-size:10px;color:#777;font-style:italic;padding-left:24px}
+.ticket .t-total{display:flex;justify-content:space-between;font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;align-items:baseline}
+.ticket .t-totrow{display:flex;justify-content:space-between;font-size:11px;color:#444}
+.ticket .t-pay{display:flex;justify-content:space-between;font-size:12px;font-weight:500;margin-top:4px}
+.ticket .t-foot{text-align:center;font-size:10px;color:#666;margin-top:12px;letter-spacing:1px}
+.ticket-actions{display:flex;gap:10px}
+.ticket-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px 20px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1px;transition:all .15s}
+.ticket-btn:hover{border-color:var(--accent);color:var(--accent)}
+.ticket-btn:active{transform:scale(.97)}
+.ticket-btn.print{background:var(--accent);color:#000;border-color:var(--accent);font-weight:500}
+.ticket-btn.print:hover{background:var(--accent2);color:#000}
+
+/* ── IMPRESIÓN: solo el ticket ── */
+@media print{
+  body{overflow:visible;background:#fff}
+  body *{visibility:hidden}
+  #modal-ticket,#modal-ticket *{visibility:visible}
+  #modal-ticket{position:absolute;inset:0;background:#fff;display:block;backdrop-filter:none}
+  .ticket-actions{display:none!important}
+  .ticket{box-shadow:none;width:80mm;max-height:none;margin:0;padding:6mm}
+  @page{margin:4mm}
+}
+
+/* ── MODALS ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(3px);z-index:200;align-items:center;justify-content:center}
+.overlay.on{display:flex}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:360px;max-height:86vh;overflow-y:auto;animation:pop .18s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.box.wide{width:740px;max-width:95vw}
+.box-pad{padding:22px}
+.box-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);margin-bottom:4px}
+.box-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:16px}
+.opt-btn{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:13px;font-weight:500;padding:12px 14px;border-radius:8px;margin-bottom:6px;text-align:left;display:flex;align-items:center;gap:10px;transition:all .15s}
+.opt-btn:hover{border-color:var(--accent);background:#252318}
+.opt-btn .op{margin-left:auto;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)}
+.box-cancel{width:100%;background:none;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;padding:10px;border-radius:7px;margin-top:6px;transition:all .15s}
+.box-cancel:hover{color:var(--text);border-color:var(--text)}
+
+/* ── PAGO ── */
+.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.pay-m{background:var(--card);border:2px solid var(--border);border-radius:9px;padding:14px;text-align:center;transition:all .15s;cursor:pointer}
+.pay-m:hover{border-color:var(--accent)}
+.pay-m.sel{border-color:var(--accent);background:#252318}
+.pay-m .pmi{font-size:22px;margin-bottom:4px}
+.pay-m .pml{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.pay-total{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:14px;text-align:center;margin-bottom:14px}
+.pay-total .l{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+.pay-total .a{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--accent)}
+.efectivo-row{display:none;margin-bottom:10px}
+.efectivo-row.on{display:block}
+.efectivo-row input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:18px;padding:12px;border-radius:8px;outline:none;text-align:center}
+.efectivo-row input:focus{border-color:var(--accent)}
+.quick-cash{display:flex;gap:6px;margin-top:8px}
+.quick-cash button{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px}
+.quick-cash button:hover{border-color:var(--accent);color:var(--accent)}
+.cambio-row{display:none;background:var(--bg);border:1px solid var(--success);border-radius:8px;padding:12px;justify-content:space-between;align-items:center;margin-bottom:10px}
+.cambio-row.on{display:flex}
+.cambio-row .l{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+.cambio-row .v{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--success)}
+.pay-confirm{width:100%;background:var(--success);color:#fff;border:none;border-radius:8px;padding:14px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:1px;cursor:pointer}
+.pay-confirm:hover{background:#2ecc71}
+
+/* ── DIVIDIR CUENTA ── */
+#modal-dividir .box{width:700px;max-width:95vw}
+.divide-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.divide-body{display:grid;grid-template-columns:1fr 1fr;min-height:320px}
+.divide-panel{display:flex;flex-direction:column;overflow:hidden;max-height:60vh}
+.divide-panel:first-child{border-right:1px solid var(--border)}
+.dp-head{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
+.dp-head .pt{color:var(--accent);font-size:11px}
+.dp-items{flex:1;overflow-y:auto;padding:8px}
+.ditem{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:6px;border:1px solid transparent;margin-bottom:3px;font-size:12px;cursor:pointer}
+.ditem:hover{background:var(--card);border-color:var(--border)}
+.ditem .dn{flex:1}
+.ditem .dpr{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+#divide-pending .ditem:hover{border-color:var(--accent)}
+#divide-pending .ditem .dpr{color:var(--accent)}
+#divide-selected .ditem{background:#1e2a1e;border-color:#2a3d2a}
+#divide-selected .ditem:hover{border-color:var(--success)}
+#divide-selected .ditem .dpr{color:var(--success)}
+.divide-foot{border-top:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:10px}
+.divide-sub{flex:1}
+.divide-sub .sl{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;display:block}
+.divide-sub .sv{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--success)}
+.dempty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;color:var(--muted);font-size:12px;text-align:center;gap:6px}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-family:'DM Mono',monospace;font-size:12px;animation:toastIn .2s ease;pointer-events:none}
+.toast.ok{border-color:var(--success);color:var(--success)}
+.toast.err{border-color:var(--danger);color:var(--danger)}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── TRASLADO ── */
+#modal-traslado .mesa-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;max-height:350px;overflow-y:auto;padding:4px}
+.mesa-pick-btn{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 8px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--text);transition:all .15s}
+.mesa-pick-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.mesa-pick-btn:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── TOUCH FEEDBACK ── */
+.pcard:active{transform:scale(.96);border-color:var(--accent)}
+.act-btn:active,.tool-btn:active,.zone-tab:active,.cmd-cat:active{opacity:.7;transform:scale(.97)}
+.mesa:active{transform:scale(.95)}
+.send-btn:active:not(:disabled){transform:scale(.98)}
+.pay-m:active{transform:scale(.97)}
+.emp-btn:active{transform:scale(.97)}
+.kbtn:active{opacity:.7;transform:scale(.95)}
+.mesa-pick-btn:active:not(:disabled){transform:scale(.95)}
+@keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+
+/* ── GUESTS POPOVER ── */
+.cmd-panel-head{position:relative}
+.guests-pop{position:absolute;top:calc(100% + 6px);right:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;z-index:50;box-shadow:0 12px 30px rgba(0,0,0,.6);animation:pop .15s cubic-bezier(.34,1.56,.64,1)}
+.guests-pop button{background:var(--card);border:1px solid var(--border);border-radius:6px;width:32px;height:32px;color:var(--text);font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.guests-pop button:hover{border-color:var(--accent);color:var(--accent)}
+.guests-pop .gnum{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);min-width:32px;text-align:center}
+.guests-pop .gok{width:auto;padding:0 12px;font-size:11px;letter-spacing:1px;background:var(--accent);color:#000;border-color:var(--accent);font-family:'DM Mono',monospace}
+.guests-pop .gok:hover{background:var(--accent2);border-color:var(--accent2)}
+
+/* ── PCARD FONT FIX ── */
+.pcard .pn{font-size:12px;font-weight:700;line-height:1.2}
+
+/* ── RESPONSIVE TABLET ── */
+@media(max-width:900px){
+  .cmd-body{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+  .cmd-cats{display:flex;flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border);max-height:56px;padding:6px 8px}
+  .cmd-cat{white-space:nowrap;flex-shrink:0;padding:8px 12px;margin-bottom:0;margin-right:4px}
+  .cmd-cat .cc{display:none}
+  .cmd-panel{border-left:none;border-top:1px solid var(--border);max-height:260px}
+  .cmd-grid-wrap{flex:1;overflow-y:auto}
+  .zone-canvas{min-width:unset}
+  .topnav{flex-wrap:wrap;row-gap:6px;padding:8px 12px}
+  .shift-badge,.price-flag{display:none}
+  .mesa{width:70px;height:70px}
+  .cmd-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  .divide-body{grid-template-columns:1fr}
+  .divide-panel:first-child{border-right:none;border-bottom:1px solid var(--border);max-height:200px}
+  .divide-panel{max-height:200px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════ LOGIN ══════ -->
+<div id="screen-login">
+  <div class="login-brand">
+    <div class="b1">La Bótica</div>
+    <div class="b2">Terminal de Ventas</div>
+  </div>
+  <div class="login-card">
+    <div class="login-title">Selecciona empleado</div>
+    <div class="emp-grid" id="emp-grid"></div>
+    <div class="pin-display" id="pin-display"></div>
+    <div class="pin-pad">
+      <button class="pin-key" data-k="1">1</button>
+      <button class="pin-key" data-k="2">2</button>
+      <button class="pin-key" data-k="3">3</button>
+      <button class="pin-key" data-k="4">4</button>
+      <button class="pin-key" data-k="5">5</button>
+      <button class="pin-key" data-k="6">6</button>
+      <button class="pin-key" data-k="7">7</button>
+      <button class="pin-key" data-k="8">8</button>
+      <button class="pin-key" data-k="9">9</button>
+      <button class="pin-key fn" data-k="clear">CLR</button>
+      <button class="pin-key" data-k="0">0</button>
+      <button class="pin-key fn" data-k="enter">OK</button>
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <div class="login-hint">Demo: PIN 1234 → Tere</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ APP ══════ -->
+<div id="app">
+  <!-- TopNav -->
+  <nav class="topnav">
+    <span class="logo">La Bótica</span>
+    <div class="nav-btns">
+      <button class="nav-tab on" data-view="mapa">📐 Mapa</button>
+      <button class="nav-tab" data-view="cocina">🍳 Cocina</button>
+      <button class="nav-tab" data-view="caja">💰 Caja</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="clock" id="clock">00:00</span>
+    <span class="shift-badge" id="shift-badge">DÍA</span>
+    <span class="price-flag day" id="price-flag">TARIFA DÍA</span>
+    <div class="emp-chip" id="emp-chip" onclick="logout()">
+      <div class="av" id="chip-av">T</div>
+      <span class="nm" id="chip-nm">Tere</span>
+    </div>
+  </nav>
+
+  <!-- ── MAPA ── -->
+  <div class="view on" id="view-mapa">
+    <div class="zone-tabs" id="zone-tabs"></div>
+    <div class="zone-stage">
+      <div class="zone-canvas" id="zone-canvas"></div>
+    </div>
+    <div class="mapa-toolbar">
+      <button class="tool-btn" id="btn-refresh-mapa" onclick="loadMapa()">↺ Actualizar</button>
+      <div class="mapa-legend">
+        <span class="lg"><span class="dot libre"></span>Libre</span>
+        <span class="lg"><span class="dot ocu"></span>Ocupada</span>
+        <span class="lg"><span class="dot nar"></span>Alerta</span>
+        <span class="lg"><span class="dot cob"></span>Cobrar</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── COMANDA ── -->
+  <div class="view" id="view-comanda">
+    <div class="cmd-bar">
+      <button class="cmd-back" onclick="showView('mapa')">← Mapa</button>
+      <div class="cmd-mesa" id="cmd-mesa-label">
+        <small id="cmd-zona-label">Zona</small>
+        Mesa —
+      </div>
+      <div class="cmd-search">
+        <span class="ic">🔍</span>
+        <input type="text" id="search-input" placeholder="Buscar producto..." autocomplete="off">
+        <div class="search-suggest hidden" id="search-suggest"></div>
+      </div>
+      <button class="cmd-warn-btn hidden" id="btn-pedir-cuenta" onclick="openPago()">💳 Cobrar</button>
+    </div>
+    <div class="cmd-body">
+      <!-- Categorías -->
+      <div class="cmd-cats" id="cmd-cats"></div>
+      <!-- Grid productos -->
+      <div class="cmd-grid-wrap">
+        <div class="cmd-grid" id="cmd-grid"></div>
+      </div>
+      <!-- Panel comanda -->
+      <div class="cmd-panel">
+        <div class="cmd-panel-head">
+          <span class="t" id="panel-comanda-title">Comanda</span>
+          <span class="clientes" id="clientes-badge" onclick="changeGuests()">👥 —</span>
+          <div class="guests-pop hidden" id="guests-pop">
+            <button onclick="adjGuests(-1)">−</button>
+            <span class="gnum" id="guests-num">1</span>
+            <button onclick="adjGuests(+1)">+</button>
+            <button class="gok" onclick="closeGuests()">OK</button>
+          </div>
+        </div>
+        <div class="cmd-list" id="cmd-list">
+          <div class="cmd-empty"><span class="i">🧾</span>Sin artículos</div>
+        </div>
+        <div class="cmd-foot">
+          <div class="cmd-status">
+            <span class="sent" id="status-sent"></span>
+            <span class="pend" id="status-pend"></span>
+          </div>
+          <div class="cmd-total">
+            <span class="tl">TOTAL</span>
+            <span class="ta" id="cmd-total-val">0,00 €</span>
+          </div>
+          <button class="send-btn" id="send-btn" onclick="sendToKitchen()">ENVIAR A COCINA</button>
+          <div class="cmd-actions">
+            <button class="act-btn" onclick="openDividir()">Dividir</button>
+            <button class="act-btn" onclick="openTraslado()">Traslado</button>
+            <button class="act-btn cobrar" onclick="openPago()">Cobrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── COCINA ── -->
+  <div class="view" id="view-cocina">
+    <div class="cocina-head">
+      <h2>🍳 Cocina</h2>
+      <span class="cocina-tick" id="cocina-tick">Actualizado —</span>
+    </div>
+    <div class="cocina-body" id="cocina-body">
+      <div class="cocina-empty"><span class="ic">✅</span><span>Todo listo — sin pedidos pendientes</span></div>
+    </div>
+  </div>
+
+  <!-- ── CAJA ── -->
+  <div class="view" id="view-caja">
+    <div class="caja-head">
+      <h2>💰 Caja del turno</h2>
+      <span class="caja-since" id="caja-since">—</span>
+      <button class="caja-close-btn" id="caja-close-btn" onclick="cerrarCaja()">Cerrar caja (Z)</button>
+    </div>
+    <div class="caja-body" id="caja-body"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ MODALES ══════ -->
+
+<!-- Ticket / recibo -->
+<div class="overlay" id="modal-ticket">
+  <div class="ticket-shell">
+    <div class="ticket" id="ticket-print"></div>
+    <div class="ticket-actions">
+      <button class="ticket-btn print" onclick="window.print()">🖨️ Imprimir</button>
+      <button class="ticket-btn" onclick="closeModal('modal-ticket')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pago -->
+<div class="overlay" id="modal-pago">
+  <div class="box">
+    <div class="box-pad">
+      <div class="box-title">Cobro</div>
+      <div class="box-sub" id="pago-sub">Mesa —</div>
+      <div class="pay-methods">
+        <div class="pay-m sel" data-method="efectivo" onclick="selectMethod('efectivo')">
+          <div class="pmi">💵</div>
+          <div class="pml">Efectivo</div>
+        </div>
+        <div class="pay-m" data-method="tarjeta" onclick="selectMethod('tarjeta')">
+          <div class="pmi">💳</div>
+          <div class="pml">Tarjeta</div>
+        </div>
+        <div class="pay-m" data-method="bizum" onclick="selectMethod('bizum')">
+          <div class="pmi">📱</div>
+          <div class="pml">Bizum</div>
+        </div>
+        <div class="pay-m" data-method="invitacion" onclick="selectMethod('invitacion')">
+          <div class="pmi">🎁</div>
+          <div class="pml">Invitación</div>
+        </div>
+      </div>
+      <div class="pay-total">
+        <div class="l">Total a pagar</div>
+        <div class="a" id="pay-total-val">0,00 €</div>
+      </div>
+      <div class="efectivo-row" id="efectivo-row">
+        <label style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;display:block;margin-bottom:6px">ENTREGA CLIENTE</label>
+        <input type="number" id="efectivo-input" placeholder="0,00" step="0.01" oninput="calcCambio()">
+        <div class="quick-cash" id="quick-cash"></div>
+      </div>
+      <div class="cambio-row" id="cambio-row">
+        <span class="l">CAMBIO</span>
+        <span class="v" id="cambio-val">0,00 €</span>
+      </div>
+      <button class="pay-confirm" onclick="confirmPago()">CONFIRMAR PAGO</button>
+      <button class="box-cancel" onclick="closeModal('modal-pago')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dividir cuenta -->
+<div class="overlay" id="modal-dividir">
+  <div class="box wide">
+    <div class="divide-header">
+      <div>
+        <div class="box-title" style="font-size:18px">Dividir cuenta</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">Selecciona qué paga ahora</div>
+      </div>
+      <button class="box-cancel" style="width:auto;margin:0" onclick="closeModal('modal-dividir')">Cerrar ✕</button>
+    </div>
+    <div class="divide-body">
+      <div class="divide-panel">
+        <div class="dp-head"><span>PENDIENTE</span><span class="pt" id="dp-pending-total">0,00 €</span></div>
+        <div class="dp-items" id="divide-pending"></div>
+      </div>
+      <div class="divide-panel">
+        <div class="dp-head"><span>A COBRAR AHORA</span><span class="pt" id="dp-sel-total">0,00 €</span></div>
+        <div class="dp-items" id="divide-selected"></div>
+      </div>
+    </div>
+    <div class="divide-foot">
+      <div class="divide-sub">
+        <span class="sl">A COBRAR</span>
+        <span class="sv" id="divide-total-sv">0,00 €</span>
+      </div>
+      <button class="pay-confirm" style="width:auto;padding:12px 28px" onclick="cobrarDivide()">Cobrar selección</button>
+    </div>
+  </div>
+</div>
+
+<!-- Traslado de mesa -->
+<div class="overlay" id="modal-traslado">
+  <div class="box">
+    <div class="box-pad">
+      <div class="box-title">Traslado</div>
+      <div class="box-sub" id="traslado-sub">Mesa origen</div>
+      <div class="mesa-pick" id="traslado-pick"></div>
+      <button class="box-cancel" onclick="closeModal('modal-traslado')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
